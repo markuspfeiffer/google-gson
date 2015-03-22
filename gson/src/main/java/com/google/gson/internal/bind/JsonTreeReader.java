@@ -1,12 +1,12 @@
 /*
  * Copyright (C) 2011 Google Inc.
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -23,12 +23,14 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
+
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+
 
 /**
  * This reader walks the elements of a JsonElement as if it was coming from a
@@ -37,190 +39,211 @@ import java.util.Map;
  * @author Jesse Wilson
  */
 public final class JsonTreeReader extends JsonReader {
-  private static final Reader UNREADABLE_READER = new Reader() {
-    @Override public int read(char[] buffer, int offset, int count) throws IOException {
-      throw new AssertionError();
-    }
-    @Override public void close() throws IOException {
-      throw new AssertionError();
-    }
-  };
-  private static final Object SENTINEL_CLOSED = new Object();
 
-  private final List<Object> stack = new ArrayList<Object>();
+    private static final Reader UNREADABLE_READER = new Reader() {
 
-  public JsonTreeReader(JsonElement element) {
-    super(UNREADABLE_READER);
-    stack.add(element);
-  }
+                                                      @Override
+                                                      public int read(final char[] buffer, final int offset, final int count) throws IOException {
+                                                          throw new AssertionError();
+                                                      }
 
-  @Override public void beginArray() throws IOException {
-    expect(JsonToken.BEGIN_ARRAY);
-    JsonArray array = (JsonArray) peekStack();
-    stack.add(array.iterator());
-  }
+                                                      @Override
+                                                      public void close() throws IOException {
+                                                          throw new AssertionError();
+                                                      }
+                                                  };
+    private static final Object SENTINEL_CLOSED   = new Object();
 
-  @Override public void endArray() throws IOException {
-    expect(JsonToken.END_ARRAY);
-    popStack(); // empty iterator
-    popStack(); // array
-  }
+    private final List<Object>  stack             = new ArrayList<Object>();
 
-  @Override public void beginObject() throws IOException {
-    expect(JsonToken.BEGIN_OBJECT);
-    JsonObject object = (JsonObject) peekStack();
-    stack.add(object.entrySet().iterator());
-  }
-
-  @Override public void endObject() throws IOException {
-    expect(JsonToken.END_OBJECT);
-    popStack(); // empty iterator
-    popStack(); // object
-  }
-
-  @Override public boolean hasNext() throws IOException {
-    JsonToken token = peek();
-    return token != JsonToken.END_OBJECT && token != JsonToken.END_ARRAY;
-  }
-
-  @Override public JsonToken peek() throws IOException {
-    if (stack.isEmpty()) {
-      return JsonToken.END_DOCUMENT;
+    public JsonTreeReader(final JsonElement element) {
+        super(UNREADABLE_READER);
+        this.stack.add(element);
     }
 
-    Object o = peekStack();
-    if (o instanceof Iterator) {
-      boolean isObject = stack.get(stack.size() - 2) instanceof JsonObject;
-      Iterator<?> iterator = (Iterator<?>) o;
-      if (iterator.hasNext()) {
-        if (isObject) {
-          return JsonToken.NAME;
-        } else {
-          stack.add(iterator.next());
-          return peek();
+    @Override
+    public void beginArray() throws IOException {
+        this.expect(JsonToken.BEGIN_ARRAY);
+        final JsonArray array = (JsonArray) this.peekStack();
+        this.stack.add(array.iterator());
+    }
+
+    @Override
+    public void endArray() throws IOException {
+        this.expect(JsonToken.END_ARRAY);
+        this.popStack(); // empty iterator
+        this.popStack(); // array
+    }
+
+    @Override
+    public void beginObject() throws IOException {
+        this.expect(JsonToken.BEGIN_OBJECT);
+        final JsonObject object = (JsonObject) this.peekStack();
+        this.stack.add(object.entrySet().iterator());
+    }
+
+    @Override
+    public void endObject() throws IOException {
+        this.expect(JsonToken.END_OBJECT);
+        this.popStack(); // empty iterator
+        this.popStack(); // object
+    }
+
+    @Override
+    public boolean hasNext() throws IOException {
+        final JsonToken token = this.peek();
+        return token != JsonToken.END_OBJECT && token != JsonToken.END_ARRAY;
+    }
+
+    @Override
+    public JsonToken peek() throws IOException {
+        if (this.stack.isEmpty()) {
+            return JsonToken.END_DOCUMENT;
         }
-      } else {
-        return isObject ? JsonToken.END_OBJECT : JsonToken.END_ARRAY;
-      }
-    } else if (o instanceof JsonObject) {
-      return JsonToken.BEGIN_OBJECT;
-    } else if (o instanceof JsonArray) {
-      return JsonToken.BEGIN_ARRAY;
-    } else if (o instanceof JsonPrimitive) {
-      JsonPrimitive primitive = (JsonPrimitive) o;
-      if (primitive.isString()) {
-        return JsonToken.STRING;
-      } else if (primitive.isBoolean()) {
-        return JsonToken.BOOLEAN;
-      } else if (primitive.isNumber()) {
-        return JsonToken.NUMBER;
-      } else {
-        throw new AssertionError();
-      }
-    } else if (o instanceof JsonNull) {
-      return JsonToken.NULL;
-    } else if (o == SENTINEL_CLOSED) {
-      throw new IllegalStateException("JsonReader is closed");
-    } else {
-      throw new AssertionError();
+
+        final Object o = this.peekStack();
+        if (o instanceof Iterator) {
+            final boolean isObject = this.stack.get(this.stack.size() - 2) instanceof JsonObject;
+            final Iterator<?> iterator = (Iterator<?>) o;
+            if (iterator.hasNext()) {
+                if (isObject) {
+                    return JsonToken.NAME;
+                } else {
+                    this.stack.add(iterator.next());
+                    return this.peek();
+                }
+            } else {
+                return isObject ? JsonToken.END_OBJECT : JsonToken.END_ARRAY;
+            }
+        } else if (o instanceof JsonObject) {
+            return JsonToken.BEGIN_OBJECT;
+        } else if (o instanceof JsonArray) {
+            return JsonToken.BEGIN_ARRAY;
+        } else if (o instanceof JsonPrimitive) {
+            final JsonPrimitive primitive = (JsonPrimitive) o;
+            if (primitive.isString()) {
+                return JsonToken.STRING;
+            } else if (primitive.isBoolean()) {
+                return JsonToken.BOOLEAN;
+            } else if (primitive.isNumber()) {
+                return JsonToken.NUMBER;
+            } else {
+                throw new AssertionError();
+            }
+        } else if (o instanceof JsonNull) {
+            return JsonToken.NULL;
+        } else if (o == SENTINEL_CLOSED) {
+            throw new IllegalStateException("JsonReader is closed");
+        } else {
+            throw new AssertionError();
+        }
     }
-  }
 
-  private Object peekStack() {
-    return stack.get(stack.size() - 1);
-  }
-
-  private Object popStack() {
-    return stack.remove(stack.size() - 1);
-  }
-
-  private void expect(JsonToken expected) throws IOException {
-    if (peek() != expected) {
-      throw new IllegalStateException("Expected " + expected + " but was " + peek());
+    private Object peekStack() {
+        return this.stack.get(this.stack.size() - 1);
     }
-  }
 
-  @Override public String nextName() throws IOException {
-    expect(JsonToken.NAME);
-    Iterator<?> i = (Iterator<?>) peekStack();
-    Map.Entry<?, ?> entry = (Map.Entry<?, ?>) i.next();
-    stack.add(entry.getValue());
-    return (String) entry.getKey();
-  }
-
-  @Override public String nextString() throws IOException {
-    JsonToken token = peek();
-    if (token != JsonToken.STRING && token != JsonToken.NUMBER) {
-      throw new IllegalStateException("Expected " + JsonToken.STRING + " but was " + token);
+    private Object popStack() {
+        return this.stack.remove(this.stack.size() - 1);
     }
-    return ((JsonPrimitive) popStack()).getAsString();
-  }
 
-  @Override public boolean nextBoolean() throws IOException {
-    expect(JsonToken.BOOLEAN);
-    return ((JsonPrimitive) popStack()).getAsBoolean();
-  }
-
-  @Override public void nextNull() throws IOException {
-    expect(JsonToken.NULL);
-    popStack();
-  }
-
-  @Override public double nextDouble() throws IOException {
-    JsonToken token = peek();
-    if (token != JsonToken.NUMBER && token != JsonToken.STRING) {
-      throw new IllegalStateException("Expected " + JsonToken.NUMBER + " but was " + token);
+    private void expect(final JsonToken expected) throws IOException {
+        if (this.peek() != expected) {
+            throw new IllegalStateException("Expected " + expected + " but was " + this.peek());
+        }
     }
-    double result = ((JsonPrimitive) peekStack()).getAsDouble();
-    if (!isLenient() && (Double.isNaN(result) || Double.isInfinite(result))) {
-      throw new NumberFormatException("JSON forbids NaN and infinities: " + result);
+
+    @Override
+    public String nextName() throws IOException {
+        this.expect(JsonToken.NAME);
+        final Iterator<?> i = (Iterator<?>) this.peekStack();
+        final Map.Entry<?, ?> entry = (Map.Entry<?, ?>) i.next();
+        this.stack.add(entry.getValue());
+        return (String) entry.getKey();
     }
-    popStack();
-    return result;
-  }
 
-  @Override public long nextLong() throws IOException {
-    JsonToken token = peek();
-    if (token != JsonToken.NUMBER && token != JsonToken.STRING) {
-      throw new IllegalStateException("Expected " + JsonToken.NUMBER + " but was " + token);
+    @Override
+    public String nextString() throws IOException {
+        final JsonToken token = this.peek();
+        if (token != JsonToken.STRING && token != JsonToken.NUMBER) {
+            throw new IllegalStateException("Expected " + JsonToken.STRING + " but was " + token);
+        }
+        return ((JsonPrimitive) this.popStack()).getAsString();
     }
-    long result = ((JsonPrimitive) peekStack()).getAsLong();
-    popStack();
-    return result;
-  }
 
-  @Override public int nextInt() throws IOException {
-    JsonToken token = peek();
-    if (token != JsonToken.NUMBER && token != JsonToken.STRING) {
-      throw new IllegalStateException("Expected " + JsonToken.NUMBER + " but was " + token);
+    @Override
+    public boolean nextBoolean() throws IOException {
+        this.expect(JsonToken.BOOLEAN);
+        return ((JsonPrimitive) this.popStack()).getAsBoolean();
     }
-    int result = ((JsonPrimitive) peekStack()).getAsInt();
-    popStack();
-    return result;
-  }
 
-  @Override public void close() throws IOException {
-    stack.clear();
-    stack.add(SENTINEL_CLOSED);
-  }
-
-  @Override public void skipValue() throws IOException {
-    if (peek() == JsonToken.NAME) {
-      nextName();
-    } else {
-      popStack();
+    @Override
+    public void nextNull() throws IOException {
+        this.expect(JsonToken.NULL);
+        this.popStack();
     }
-  }
 
-  @Override public String toString() {
-    return getClass().getSimpleName();
-  }
+    @Override
+    public double nextDouble() throws IOException {
+        final JsonToken token = this.peek();
+        if (token != JsonToken.NUMBER && token != JsonToken.STRING) {
+            throw new IllegalStateException("Expected " + JsonToken.NUMBER + " but was " + token);
+        }
+        final double result = ((JsonPrimitive) this.peekStack()).getAsDouble();
+        if (!this.isLenient() && (Double.isNaN(result) || Double.isInfinite(result))) {
+            throw new NumberFormatException("JSON forbids NaN and infinities: " + result);
+        }
+        this.popStack();
+        return result;
+    }
 
-  public void promoteNameToValue() throws IOException {
-    expect(JsonToken.NAME);
-    Iterator<?> i = (Iterator<?>) peekStack();
-    Map.Entry<?, ?> entry = (Map.Entry<?, ?>) i.next();
-    stack.add(entry.getValue());
-    stack.add(new JsonPrimitive((String)entry.getKey()));
-  }
+    @Override
+    public long nextLong() throws IOException {
+        final JsonToken token = this.peek();
+        if (token != JsonToken.NUMBER && token != JsonToken.STRING) {
+            throw new IllegalStateException("Expected " + JsonToken.NUMBER + " but was " + token);
+        }
+        final long result = ((JsonPrimitive) this.peekStack()).getAsLong();
+        this.popStack();
+        return result;
+    }
+
+    @Override
+    public int nextInt() throws IOException {
+        final JsonToken token = this.peek();
+        if (token != JsonToken.NUMBER && token != JsonToken.STRING) {
+            throw new IllegalStateException("Expected " + JsonToken.NUMBER + " but was " + token);
+        }
+        final int result = ((JsonPrimitive) this.peekStack()).getAsInt();
+        this.popStack();
+        return result;
+    }
+
+    @Override
+    public void close() throws IOException {
+        this.stack.clear();
+        this.stack.add(SENTINEL_CLOSED);
+    }
+
+    @Override
+    public void skipValue() throws IOException {
+        if (this.peek() == JsonToken.NAME) {
+            this.nextName();
+        } else {
+            this.popStack();
+        }
+    }
+
+    @Override
+    public String toString() {
+        return this.getClass().getSimpleName();
+    }
+
+    public void promoteNameToValue() throws IOException {
+        this.expect(JsonToken.NAME);
+        final Iterator<?> i = (Iterator<?>) this.peekStack();
+        final Map.Entry<?, ?> entry = (Map.Entry<?, ?>) i.next();
+        this.stack.add(entry.getValue());
+        this.stack.add(new JsonPrimitive((String) entry.getKey()));
+    }
 }
