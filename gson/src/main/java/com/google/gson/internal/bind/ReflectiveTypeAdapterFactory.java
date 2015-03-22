@@ -1,12 +1,12 @@
 /*
  * Copyright (C) 2011 Google Inc.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -24,6 +24,8 @@ import com.google.gson.JsonSyntaxException;
 import com.google.gson.TypeAdapter;
 import com.google.gson.TypeAdapterFactory;
 import com.google.gson.annotations.JsonAdapter;
+import com.google.gson.annotations.Serialize;
+import com.google.gson.annotations.Serialize.Inclusion;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.internal.$Gson$Types;
 import com.google.gson.internal.ConstructorConstructor;
@@ -75,6 +77,17 @@ public final class ReflectiveTypeAdapterFactory implements TypeAdapterFactory {
         return serializedName == null ? fieldNamingPolicy.translateName(f) : serializedName.value();
     }
 
+    private Inclusion getInclusion(final Field f) {
+
+        final Serialize annotation = f.getAnnotation(Serialize.class);
+
+        if (annotation == null || annotation.value() == null) {
+            return Inclusion.DEFAULT;
+        }
+
+        return annotation.value();
+    }
+
     public <T> TypeAdapter<T> create(final Gson gson, final TypeToken<T> type) {
         final Class<? super T> raw = type.getRawType();
 
@@ -87,11 +100,17 @@ public final class ReflectiveTypeAdapterFactory implements TypeAdapterFactory {
     }
 
     private ReflectiveTypeAdapterFactory.BoundField createBoundField(
-            final Gson context, final Field field, final String name,
-            final TypeToken<?> fieldType, final boolean serialize, final boolean deserialize) {
+            final Gson context,
+            final Field field,
+            final String name,
+            final Inclusion inclusion,
+            final TypeToken<?> fieldType,
+            final boolean serialize,
+            final boolean deserialize) {
         final boolean isPrimitive = Primitives.isPrimitive(fieldType.getRawType());
+
         // special casing primitives here saves ~5% on Android...
-        return new ReflectiveTypeAdapterFactory.BoundField(name, serialize, deserialize) {
+        return new ReflectiveTypeAdapterFactory.BoundField(name, inclusion, serialize, deserialize) {
 
             final TypeAdapter<?> typeAdapter = ReflectiveTypeAdapterFactory.this.getFieldAdapter(context, field, fieldType);
 
@@ -149,13 +168,22 @@ public final class ReflectiveTypeAdapterFactory implements TypeAdapterFactory {
             for (final Field field : fields) {
                 final boolean serialize = this.excludeField(field, true);
                 final boolean deserialize = this.excludeField(field, false);
+
                 if (!serialize && !deserialize) {
                     continue;
                 }
+
                 field.setAccessible(true);
                 final Type fieldType = $Gson$Types.resolve(type.getType(), raw, field.getGenericType());
-                final BoundField boundField = this.createBoundField(context, field, this.getFieldName(field),
-                        TypeToken.get(fieldType), serialize, deserialize);
+                final BoundField boundField = this.createBoundField(
+                        context,
+                        field,
+                        this.getFieldName(field),
+                        this.getInclusion(field),
+                        TypeToken.get(fieldType),
+                        serialize,
+                        deserialize);
+
                 final BoundField previous = result.put(boundField.name, boundField);
                 if (previous != null) {
                     throw new IllegalArgumentException(declaredType
@@ -170,12 +198,14 @@ public final class ReflectiveTypeAdapterFactory implements TypeAdapterFactory {
 
     static abstract class BoundField {
 
-        final String  name;
-        final boolean serialized;
-        final boolean deserialized;
+        final String    name;
+        final Inclusion inclusion;
+        final boolean   serialized;
+        final boolean   deserialized;
 
-        protected BoundField(final String name, final boolean serialized, final boolean deserialized) {
+        protected BoundField(final String name, final Inclusion inclusion, final boolean serialized, final boolean deserialized) {
             this.name = name;
+            this.inclusion = inclusion;
             this.serialized = serialized;
             this.deserialized = deserialized;
         }
@@ -238,6 +268,7 @@ public final class ReflectiveTypeAdapterFactory implements TypeAdapterFactory {
                 for (final BoundField boundField : this.boundFields.values()) {
                     if (boundField.writeField(value)) {
                         out.name(boundField.name);
+                        out.inclusion(boundField.inclusion);
                         boundField.write(out, value);
                     }
                 }

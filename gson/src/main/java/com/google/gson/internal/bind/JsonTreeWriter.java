@@ -21,6 +21,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import com.google.gson.annotations.Serialize.Inclusion;
 import com.google.gson.stream.JsonWriter;
 
 import java.io.IOException;
@@ -153,6 +154,11 @@ public final class JsonTreeWriter extends JsonWriter {
             return this;
         }
         throw new IllegalStateException();
+    }
+
+    @Override
+    public JsonWriter inclusion(final Inclusion inclusion) {
+        return this;
     }
 
     @Override

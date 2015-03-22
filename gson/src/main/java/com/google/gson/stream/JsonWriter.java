@@ -1,12 +1,12 @@
 /*
  * Copyright (C) 2010 Google Inc.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -23,6 +23,8 @@ import static com.google.gson.stream.JsonScope.EMPTY_OBJECT;
 import static com.google.gson.stream.JsonScope.NONEMPTY_ARRAY;
 import static com.google.gson.stream.JsonScope.NONEMPTY_DOCUMENT;
 import static com.google.gson.stream.JsonScope.NONEMPTY_OBJECT;
+
+import com.google.gson.annotations.Serialize.Inclusion;
 
 import java.io.Closeable;
 import java.io.Flushable;
@@ -135,7 +137,7 @@ public class JsonWriter implements Closeable, Flushable {
      * quotation marks except for the characters that must be escaped:
      * quotation mark, reverse solidus, and the control characters
      * (U+0000 through U+001F)."
-     * 
+     *
      * We also escape '\u2028' and '\u2029', which JavaScript interprets as
      * newline characters. This prevents eval() from failing with a syntax
      * error. http://code.google.com/p/google-gson/issues/detail?id=341
@@ -187,6 +189,8 @@ public class JsonWriter implements Closeable, Flushable {
     private boolean               htmlSafe;
 
     private String                deferredName;
+
+    private Inclusion             deferredInclusion;
 
     private boolean               serializeNulls = true;
 
@@ -326,6 +330,7 @@ public class JsonWriter implements Closeable, Flushable {
         this.beforeValue(true);
         this.push(empty);
         this.out.write(openBracket);
+        this.afterValue();
         return this;
     }
 
@@ -397,6 +402,33 @@ public class JsonWriter implements Closeable, Flushable {
         return this;
     }
 
+    /**
+     * Defines whether to write forthcoming value if {@code null}.
+     *
+     * @param inclusion the inclusion mode. May not be null.
+     * @return this writer.
+     */
+    public JsonWriter inclusion(final Inclusion inclusion) {
+        if (inclusion == null) {
+            throw new NullPointerException("inclusion == null");
+        }
+        if (this.deferredInclusion != null) {
+            throw new IllegalStateException();
+        }
+        if (this.stackSize == 0) {
+            throw new IllegalStateException("JsonWriter is closed.");
+        }
+        this.deferredInclusion = inclusion;
+        return this;
+    }
+
+    private boolean includeNullValue() {
+        if (this.serializeNulls && this.deferredInclusion != Inclusion.NON_NULL) {
+            return true;
+        }
+        return this.deferredInclusion == Inclusion.ALWAYS;
+    }
+
     private void writeDeferredName() throws IOException {
         if (this.deferredName != null) {
             this.beforeName();
@@ -418,6 +450,7 @@ public class JsonWriter implements Closeable, Flushable {
         this.writeDeferredName();
         this.beforeValue(false);
         this.string(value);
+        this.afterValue();
         return this;
     }
 
@@ -428,15 +461,17 @@ public class JsonWriter implements Closeable, Flushable {
      */
     public JsonWriter nullValue() throws IOException {
         if (this.deferredName != null) {
-            if (this.serializeNulls) {
+            if (this.includeNullValue()) {
                 this.writeDeferredName();
             } else {
                 this.deferredName = null;
+                this.deferredInclusion = null;
                 return this; // skip the name and the value
             }
         }
         this.beforeValue(false);
         this.out.write("null");
+        this.afterValue();
         return this;
     }
 
@@ -449,6 +484,7 @@ public class JsonWriter implements Closeable, Flushable {
         this.writeDeferredName();
         this.beforeValue(false);
         this.out.write(value ? "true" : "false");
+        this.afterValue();
         return this;
     }
 
@@ -465,7 +501,8 @@ public class JsonWriter implements Closeable, Flushable {
         }
         this.writeDeferredName();
         this.beforeValue(false);
-        this.out.append(Double.toString(value));
+        this.out.write(Double.toString(value));
+        this.afterValue();
         return this;
     }
 
@@ -478,6 +515,7 @@ public class JsonWriter implements Closeable, Flushable {
         this.writeDeferredName();
         this.beforeValue(false);
         this.out.write(Long.toString(value));
+        this.afterValue();
         return this;
     }
 
@@ -500,7 +538,8 @@ public class JsonWriter implements Closeable, Flushable {
             throw new IllegalArgumentException("Numeric values must be finite, but was " + value);
         }
         this.beforeValue(false);
-        this.out.append(string);
+        this.out.write(string);
+        this.afterValue();
         return this;
     }
 
@@ -631,5 +670,9 @@ public class JsonWriter implements Closeable, Flushable {
             default:
                 throw new IllegalStateException("Nesting problem.");
         }
+    }
+
+    private void afterValue() {
+        this.deferredInclusion = null;
     }
 }
